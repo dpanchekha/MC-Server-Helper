@@ -1,0 +1,4 @@
+const { contextBridge, ipcRenderer } = require('electron');
+contextBridge.exposeInMainWorld('serverApp', {
+  listVersions: () => ipcRenderer.invoke('versions:list'), listServers: () => ipcRenderer.invoke('servers:list'), createServer: payload => ipcRenderer.invoke('server:create', payload), updateServer: payload => ipcRenderer.invoke('server:update', payload), deleteServer: folder => ipcRenderer.invoke('server:delete', folder), openFolder: folder => ipcRenderer.invoke('server:open-folder', folder), startServer: payload => ipcRenderer.invoke('server:start', payload), acceptEula: folder => ipcRenderer.invoke('server:accept-eula', folder), openEula: () => ipcRenderer.invoke('app:open-eula'), sendCommand: payload => ipcRenderer.invoke('server:command', payload), stopServer: folder => ipcRenderer.invoke('server:stop', folder), platform: () => ipcRenderer.invoke('app:java'), onServerEvent: callback => ipcRenderer.on('server:event', (_, event) => callback(event))
+});
