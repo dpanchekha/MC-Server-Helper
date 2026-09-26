@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
@@ -84,6 +84,8 @@ function stopServer(folder) { const child = processes.get(folder); if (child) ch
 
 function createWindow() {
   const win = new BrowserWindow({ width: 1260, height: 820, minWidth: 980, minHeight: 640, backgroundColor: '#0d1319', webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false } });
+  Menu.setApplicationMenu(null);
+  win.setMenuBarVisibility(false);
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
