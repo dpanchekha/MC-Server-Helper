@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
+const net = require('net');
 const { spawn } = require('child_process');
 
 const MANIFEST_URL = 'https://launchermeta.mojang.com/mc/game/version_manifest_v2.json';
@@ -11,8 +12,10 @@ const PLAYIT_URL = 'https://playit.gg/account/setup/new-tunnel';
 const serversRoot = () => path.join(app.getPath('userData'), 'servers');
 const processes = new Map();
 let playitProcess = null;
+let playitCliProcess = null;
 const playitDir = () => path.join(app.getPath('userData'), 'network');
 const playitBinary = () => path.join(playitDir(), process.platform === 'win32' ? 'playit.exe' : 'playit');
+const playitCliBinary = () => path.join(playitDir(), process.platform === 'win32' ? 'playit-cli.exe' : 'playit-cli');
 
 function safeName(value) {
   return value.trim().replace(/[<>:"/\\|?*\u0000-\u001F]/g, '-').replace(/\.+$/g, '').slice(0, 64) || 'My Server';
@@ -96,21 +99,25 @@ async function networkInfo(folder) {
   return { port, local: `127.0.0.1:${port}`, lan: addresses.map(address => `${address}:${port}`) };
 }
 
-async function playitStatus() { return { installed: fs.existsSync(playitBinary()), running: Boolean(playitProcess), platform: process.platform, arch: process.arch }; }
+async function playitStatus() { return { installed: fs.existsSync(playitBinary()) && fs.existsSync(playitCliBinary()), running: Boolean(playitProcess), platform: process.platform, arch: process.arch }; }
+function publicAddresses(value, found = new Set()) { if (typeof value === 'string') { const matches = value.match(/[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?/gi) || []; matches.forEach(match => found.add(match)); } else if (value && typeof value === 'object') Object.values(value).forEach(item => publicAddresses(item, found)); return [...found]; }
+function tunnelAddresses(tunnels) { return (Array.isArray(tunnels) ? tunnels : []).flatMap(tunnel => { const direct = ['display_address', 'public_address', 'endpoint', 'address'].flatMap(key => typeof tunnel?.[key] === 'string' ? publicAddresses(tunnel[key]) : []); return direct.length ? direct : publicAddresses(tunnel); }).filter(address => !address.startsWith('127.0.0.1:') && !address.startsWith('localhost:')); }
+async function playitTunnels() { if (!playitProcess) return { connected: false, addresses: [] }; if (process.platform === 'win32') return { connected: true, addresses: [] }; const socketPath = path.join(playitDir(), 'playitd.sock'); return new Promise(resolve => { const socket = net.createConnection(socketPath); let buffer = ''; const finish = result => { clearTimeout(timer); socket.destroy(); resolve(result); }; const timer = setTimeout(() => finish({ connected: false, addresses: [] }), 1500); socket.on('connect', () => socket.write(`${JSON.stringify({ ipc_version: 2, request_id: 1, request: { type: 'get_state' } })}\n`)); socket.on('data', chunk => { buffer += chunk.toString(); const lines = buffer.split('\n'); buffer = lines.pop(); for (const line of lines) { try { const message = JSON.parse(line); const response = message?.data?.response; if (response?.type === 'state') { const state = response.data?.data || response.data || {}; finish({ connected: true, addresses: tunnelAddresses(state.tunnels) }); return; } if (response?.type === 'error') { finish({ connected: false, addresses: [] }); return; } } catch {} } }); socket.on('error', () => finish({ connected: false, addresses: [] })); }); }
 async function installPlayit() {
   await fsp.mkdir(playitDir(), { recursive: true });
   const release = await (await fetch('https://api.github.com/repos/playit-cloud/playit-agent/releases/latest', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'MC-Server-Helper' } })).json();
-  const arch = process.arch === 'arm64' ? 'aarch64' : process.arch === 'ia32' ? 'i686' : 'x86_64';
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
-  const asset = (release.assets || []).find(item => { const name = item.name.toLowerCase(); return name.includes(platform) && name.includes(arch) && !name.endsWith('.msi') && !name.endsWith('.deb') && !name.endsWith('.rpm') && !name.endsWith('.apk'); });
-  if (!asset) throw new Error(`No playit agent build was found for ${platform}/${arch}. Download one from playit.gg/download.`);
-  const response = await fetch(asset.browser_download_url); if (!response.ok) throw new Error(`Could not download playit agent (${response.status}).`);
-  await fsp.writeFile(playitBinary(), Buffer.from(await response.arrayBuffer()));
-  if (process.platform !== 'win32') await fsp.chmod(playitBinary(), 0o755);
+  const architectures = process.arch === 'arm64' ? ['aarch64', 'arm64'] : process.arch === 'ia32' ? ['i686', 'x86'] : platform === 'linux' ? ['amd64', 'x86_64'] : ['x86_64', 'amd64'];
+  const assets = release.assets || [];
+  const assetFor = cli => assets.find(item => { const name = item.name.toLowerCase(); return name.includes(platform) && architectures.some(arch => name.includes(arch)) && name.includes(cli ? 'cli' : 'playit') && (cli ? name.includes('cli') : !name.includes('cli')) && !name.endsWith('.msi') && !name.endsWith('.deb') && !name.endsWith('.rpm') && !name.endsWith('.apk'); });
+  const daemonAsset = assetFor(false); const cliAsset = assetFor(true);
+  if (!daemonAsset || !cliAsset) throw new Error(`No complete playit agent build was found for ${platform}/${process.arch}. Download the official package from playit.gg/download.`);
+  for (const [asset, target] of [[daemonAsset, playitBinary()], [cliAsset, playitCliBinary()]]) { const response = await fetch(asset.browser_download_url); if (!response.ok) throw new Error(`Could not download playit agent (${response.status}).`); await fsp.writeFile(target, Buffer.from(await response.arrayBuffer())); if (process.platform !== 'win32') await fsp.chmod(target, 0o755); }
   return playitStatus();
 }
-function startPlayit(onEvent) { if (playitProcess) return; if (!fs.existsSync(playitBinary())) throw new Error('Install the playit agent first.'); playitProcess = spawn(playitBinary(), [], { cwd: playitDir(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }); const emit = data => onEvent({ type: 'log', data: data.toString() }); playitProcess.stdout.on('data', emit); playitProcess.stderr.on('data', emit); playitProcess.on('error', error => { onEvent({ type: 'error', message: error.message }); playitProcess = null; }); playitProcess.on('close', code => { onEvent({ type: 'status', status: 'stopped', code }); playitProcess = null; }); onEvent({ type: 'status', status: 'running' }); }
-function stopPlayit() { if (playitProcess) { playitProcess.stdin.write('exit\n'); setTimeout(() => playitProcess?.kill(), 1500); } }
+function startPlayit(onEvent) { if (playitProcess) return; if (!fs.existsSync(playitBinary()) || !fs.existsSync(playitCliBinary())) throw new Error('Install the playit agent first.'); const socketPath = path.join(playitDir(), 'playitd.sock'); if (process.platform !== 'win32') { try { fs.rmSync(socketPath, { force: true }); } catch {} } const args = process.platform === 'win32' ? [] : ['--socket-path', socketPath]; playitProcess = spawn(playitBinary(), args, { cwd: playitDir(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }); const emit = data => onEvent({ type: 'log', data: data.toString() }); playitProcess.stdout.on('data', emit); playitProcess.stderr.on('data', emit); playitProcess.on('error', error => { onEvent({ type: 'error', message: error.message }); playitProcess = null; }); playitProcess.on('close', code => { onEvent({ type: 'status', status: 'stopped', code }); playitProcess = null; }); setTimeout(() => { if (!playitProcess) return; const cliArgs = process.platform === 'win32' ? ['--stdout', 'setup'] : ['--socket-path', socketPath, '--stdout', 'setup']; playitCliProcess = spawn(playitCliBinary(), cliArgs, { cwd: playitDir(), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }); playitCliProcess.stdout.on('data', emit); playitCliProcess.stderr.on('data', emit); playitCliProcess.on('close', () => { playitCliProcess = null; }); }, 500); onEvent({ type: 'status', status: 'running' }); }
+function stopPlayit() { if (playitCliProcess) playitCliProcess.kill(); if (playitProcess) { playitProcess.stdin.write('exit\n'); setTimeout(() => playitProcess?.kill(), 1500); } }
+async function deletePlayit() { if (playitCliProcess) playitCliProcess.kill(); if (playitProcess) playitProcess.kill(); playitCliProcess = null; playitProcess = null; await fsp.rm(playitBinary(), { force: true }); await fsp.rm(playitCliBinary(), { force: true }); await fsp.rm(path.join(playitDir(), 'playitd.sock'), { force: true }); return playitStatus(); }
 
 function sendCommand(folder, command) { const child = processes.get(folder); if (!child) throw new Error('Server is not running.'); child.stdin.write(`${command}\n`); }
 function stopServer(folder) { const child = processes.get(folder); if (child) child.stdin.write('stop\n'); }
@@ -126,16 +133,18 @@ app.whenReady().then(() => {
   ipcMain.handle('versions:list', fetchManifest);
   ipcMain.handle('servers:list', listServers);
   ipcMain.handle('server:create', (_, payload) => createServer(payload));
-  ipcMain.handle('server:update', async (_, { folder, ram }) => { const file = path.join(serversRoot(), folder, 'server.json'); const meta = await readJson(file); await fsp.writeFile(file, JSON.stringify({ ...meta, ram }, null, 2)); await writeLauncher(path.join(serversRoot(), folder), ram); return listServers(); });
+  ipcMain.handle('server:update', async (_, { folder, ram, online }) => { const file = path.join(serversRoot(), folder, 'server.json'); const meta = await readJson(file); await fsp.writeFile(file, JSON.stringify({ ...meta, ram, online: Boolean(online) }, null, 2)); await writeLauncher(path.join(serversRoot(), folder), ram); return listServers(); });
   ipcMain.handle('server:delete', async (_, folder) => { if (processes.has(folder)) throw new Error('Stop the server before deleting it.'); await fsp.rm(path.join(serversRoot(), folder), { recursive: true, force: true }); return listServers(); });
   ipcMain.handle('server:open-folder', (_, folder) => shell.openPath(path.join(serversRoot(), folder)));
   ipcMain.handle('server:start', async (event, payload) => { if (!(await eulaAccepted(path.join(serversRoot(), payload.folder)))) return { needsEula: true }; startServer(payload.folder, payload.ram, message => event.sender.send('server:event', { folder: payload.folder, ...message })); return { started: true }; });
   ipcMain.handle('server:accept-eula', (_, folder) => acceptEula(folder));
   ipcMain.handle('network:info', (_, folder) => networkInfo(folder));
   ipcMain.handle('network:playit-status', playitStatus);
+  ipcMain.handle('network:playit-tunnels', playitTunnels);
   ipcMain.handle('network:playit-install', installPlayit);
   ipcMain.handle('network:playit-start', event => { startPlayit(message => event.sender.send('playit:event', message)); return playitStatus(); });
   ipcMain.handle('network:playit-stop', stopPlayit);
+  ipcMain.handle('network:playit-delete', deletePlayit);
   ipcMain.handle('server:command', (_, payload) => sendCommand(payload.folder, payload.command));
   ipcMain.handle('server:stop', (_, folder) => stopServer(folder));
   ipcMain.handle('app:java', () => process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux');

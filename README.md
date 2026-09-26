@@ -24,6 +24,8 @@ The first time you choose **Initialize server**, the app shows the official Mine
 
 RAM can be changed from a server card's **Settings** action or from the server console. The setting updates the generated launch scripts and applies the next time the server starts.
 
+Each server also has an **Online** toggle. Offline starts only Minecraft. Online starts the playit agent first, provided the agent has been installed and claimed in the Networking tab; the playit tunnel itself must already be configured for that server's local port.
+
 For online play, the Networking tab can download and run the official playit agent in the background. On first setup, start the agent, open the claim link printed in the agent log, sign in or create a playit.gg account, claim the agent, and create a Minecraft Java tunnel pointing at the server's local port. Port forwarding and a virtual LAN such as Hamachi remain alternatives. The Help tab explains memory allocation, server files, local/LAN/online play, and playit.
 
 ## Development checks
