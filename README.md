@@ -32,8 +32,8 @@ The installer will be created in `release/` as `MC Server Helper Setup <version>
 To publish an installer automatically through GitHub Actions, push a version tag:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The `Windows release` workflow builds the installer on a Windows runner, attaches it to the GitHub Release, and also saves it as a workflow artifact. You can run the workflow manually from the Actions tab as well, but only version tags create a published release.
@@ -44,9 +44,9 @@ The first time you choose **Initialize server**, the app shows the official Mine
 
 RAM can be changed from a server card's **Settings** action or from the server console. The setting updates the generated launch scripts and applies the next time the server starts.
 
-Each server also has an **Online** toggle. Offline starts only Minecraft. Online starts the playit agent first, provided the agent has been installed and claimed in the Networking tab; the playit tunnel itself must already be configured for that server's local port.
+Each server also has an **Online** toggle. Offline starts only Minecraft. Online starts the playit agent first, provided the agent has been installed and claimed in the Multiplayer setup tab; the playit tunnel itself must already be configured for that server's local port.
 
-For online play, the Networking tab can download and run the official playit agent in the background. On first setup, start the agent, open the claim link printed in the agent log, sign in or create a playit.gg account, claim the agent, and create a Minecraft Java tunnel pointing at the server's local port. Port forwarding and a virtual LAN such as Hamachi remain alternatives. The Help tab explains memory allocation, server files, local/LAN/online play, and playit.
+For online play, the Multiplayer setup tab can download and run the official playit agent in the background. On first setup, start the agent, open the claim link printed in the agent console, sign in or create a playit.gg account, claim the agent, and create a Minecraft Java tunnel pointing at the server's local port. Windows uses the official playit Windows agent executable; Linux uses the agent and CLI release binaries. Port forwarding and a virtual LAN such as Hamachi remain alternatives. The Help tab explains memory allocation, server files, local/LAN/online play, and playit.
 
 ## Development checks
 
@@ -56,14 +56,19 @@ npm run check
 
 This checks all JavaScript entry points for syntax errors.
 
-## Creating the feature commits
+## Creating feature-based commits
 
-This managed workspace permits project-file edits but does not permit writes inside `.git`, so commits could not be created here. In a normal writable checkout, create the requested feature commits with:
+Keep commits focused on one user-visible feature. For this release, use these two commits:
 
 ```sh
-git add package.json .gitignore src/main.js src/preload.js
-git commit -m "Build Electron server management foundation"
+git add src/index.html src/renderer.js src/styles.css
+git commit -m "Improve multiplayer setup and server navigation"
 
-git add src/index.html src/styles.css src/renderer.js README.md
-git commit -m "Add server workspace and live console UI"
+git add src/main.js README.md package.json package-lock.json
+git commit -m "Fix Windows playit installation and release setup"
+
+git tag -a v0.2.0 -m "Release v0.2.0"
+git push origin main --follow-tags
 ```
+
+The tag starts the Windows release workflow, which builds the NSIS installer and attaches the `.exe` to the GitHub Release.
