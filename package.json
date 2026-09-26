@@ -6,11 +6,46 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "check": "node --check src/main.js && node --check src/preload.js"
+    "check": "node --check src/main.js && node --check src/preload.js",
+    "dist:win": "electron-builder --win nsis",
+    "dist": "electron-builder"
   },
-  "keywords": ["minecraft", "server", "electron"],
+  "keywords": [
+    "minecraft",
+    "server",
+    "electron"
+  ],
   "license": "MIT",
   "devDependencies": {
-    "electron": "^32.1.2"
+    "electron": "^32.1.2",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.mcserverhelper.app",
+    "productName": "MC Server Helper",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MC Server Helper"
+    }
   }
 }

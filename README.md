@@ -18,6 +18,26 @@ MC Server Helper is a cross-platform Electron desktop app for downloading offici
    npm start
    ```
 
+## Build a Windows installer
+
+On Windows, install Node.js 20 or newer, open a terminal in the project folder, and run:
+
+```powershell
+npm install
+npm run dist:win
+```
+
+The installer will be created in `release/` as `MC Server Helper Setup <version>.exe`. It creates normal Start Menu and Desktop shortcuts. Java is still installed separately because Minecraft servers require it.
+
+To publish an installer automatically through GitHub Actions, push a version tag:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The `Windows release` workflow builds the installer on a Windows runner, attaches it to the GitHub Release, and also saves it as a workflow artifact. You can run the workflow manually from the Actions tab as well, but only version tags create a published release.
+
 The app downloads release metadata from Mojang's `version_manifest_v2.json`. A new server is stored beneath Electron's per-user app data directory in a `servers/<server-name>` folder. Each folder contains `server.jar`, `server.json`, and both `start-server.sh` and `start-server.bat`.
 
 The first time you choose **Initialize server**, the app shows the official Minecraft EULA link. After you review it, choose **Accept and continue** and MC Server Helper writes `eula=true` for that server. The action then changes to **Start server**.
