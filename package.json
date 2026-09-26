@@ -1,6 +1,6 @@
 {
   "name": "mc-server-helper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A friendly desktop manager for local Minecraft servers.",
   "main": "src/main.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "dev": "electron .",
     "check": "node --check src/main.js && node --check src/preload.js",
     "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg",
     "dist": "electron-builder"
   },
   "keywords": [
@@ -36,6 +37,17 @@
           "target": "nsis",
           "arch": [
             "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
           ]
         }
       ]
