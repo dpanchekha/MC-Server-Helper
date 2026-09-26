@@ -1,6 +1,6 @@
 {
   "name": "mc-server-helper",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A friendly desktop manager for local Minecraft servers.",
   "main": "src/main.js",
   "scripts": {
