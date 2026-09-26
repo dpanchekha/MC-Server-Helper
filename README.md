@@ -22,6 +22,10 @@ The app downloads release metadata from Mojang's `version_manifest_v2.json`. A n
 
 The first time you choose **Initialize server**, the app shows the official Minecraft EULA link. After you review it, choose **Accept and continue** and MC Server Helper writes `eula=true` for that server. The action then changes to **Start server**.
 
+RAM can be changed from a server card's **Settings** action or from the server console. The setting updates the generated launch scripts and applies the next time the server starts.
+
+For online play, the current app only hosts the server locally. Friends need a reachable connection through port forwarding, a virtual LAN such as Hamachi, or a tunnel service such as playit.gg. A future online-play feature could manage a tunnel process inside the app, with playit.gg being the simplest first integration; it would require account/authentication and careful handling of the tunnel client.
+
 ## Development checks
 
 ```sh
