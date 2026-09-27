@@ -1,6 +1,6 @@
 {
   "name": "mc-server-helper",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "A friendly desktop manager for local Minecraft servers.",
   "main": "src/main.js",
   "scripts": {
@@ -32,10 +32,10 @@
       "package.json"
     ],
     "win": {
+      "artifactName": "MC-Server-Helper-Windows-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
-          "artifactName": "MC-Server-Helper-Windows-Setup-${version}.${ext}",
           "arch": [
             "x64"
           ]
@@ -43,10 +43,10 @@
       ]
     },
     "mac": {
+      "artifactName": "MC-Server-Helper-macOS-${arch}-${version}.${ext}",
       "target": [
         {
           "target": "dmg",
-          "artifactName": "MC-Server-Helper-macOS-${arch}-${version}.${ext}",
           "arch": [
             "x64",
             "arm64"
