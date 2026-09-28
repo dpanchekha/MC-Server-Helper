@@ -108,9 +108,10 @@ async function installPlayit() {
   await fsp.mkdir(playitDir(), { recursive: true });
   const release = await (await fetch('https://api.github.com/repos/playit-cloud/playit-agent/releases/latest', { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'MC-Server-Helper' } })).json();
   const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'darwin' : 'linux';
-  const architectures = process.arch === 'arm64' ? ['aarch64', 'arm64'] : process.arch === 'ia32' ? ['i686', 'x86'] : platform === 'linux' ? ['amd64', 'x86_64'] : ['x86_64', 'amd64'];
+  const architectures = process.arch === 'arm64' ? ['aarch64', 'arm64', 'apple-m1', 'm1'] : process.arch === 'ia32' ? ['i686', 'x86'] : platform === 'linux' ? ['amd64', 'x86_64'] : ['x86_64', 'amd64', 'x64', 'apple-intel', 'intel'];
+  const platformNames = platform === 'darwin' ? ['darwin', 'macos', 'mac', 'apple'] : [platform];
   const assets = release.assets || [];
-  const assetFor = cli => assets.find(item => { const name = item.name.toLowerCase(); return name.includes(platform) && architectures.some(arch => name.includes(arch)) && name.includes(cli ? 'cli' : 'playit') && (cli ? name.includes('cli') : !name.includes('cli')) && !name.endsWith('.msi') && !name.endsWith('.deb') && !name.endsWith('.rpm') && !name.endsWith('.apk'); });
+  const assetFor = cli => assets.find(item => { const name = item.name.toLowerCase(); return platformNames.some(namePart => name.includes(namePart)) && architectures.some(arch => name.includes(arch)) && name.includes(cli ? 'cli' : 'playit') && (cli ? name.includes('cli') : !name.includes('cli')) && !name.endsWith('.msi') && !name.endsWith('.dmg') && !name.endsWith('.deb') && !name.endsWith('.rpm') && !name.endsWith('.apk') && !name.endsWith('.zip'); });
   const daemonAsset = assetFor(false); const cliAsset = ['win32', 'darwin'].includes(process.platform) ? null : assetFor(true);
   if (!daemonAsset || (!['win32', 'darwin'].includes(process.platform) && !cliAsset)) throw new Error(`No complete playit agent build was found for ${platform}/${process.arch}. Download the official package from playit.gg/download.`);
   const downloads = ['win32', 'darwin'].includes(process.platform) ? [[daemonAsset, playitBinary()]] : [[daemonAsset, playitBinary()], [cliAsset, playitCliBinary()]];
